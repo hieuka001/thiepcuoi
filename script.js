@@ -356,6 +356,11 @@ function playMusic() {
     bgAudio.volume = Math.min(1, Math.max(0, musicCfg.volume));
   }
 
+  // iOS Safari: goi load() ngay trong thao tac cham thi play() moi chay on dinh
+  try {
+    bgAudio.load();
+  } catch {}
+
   bgAudio.play()
     .then(() => {
       musicPlaying = true;
