@@ -159,9 +159,10 @@ function applyImageContent() {
     try {
       el.decoding = "async";
     } catch {}
-    if (el.closest(".album-section")) {
+    if (el.closest(".album-section") || key === "saveDate" || key === "footer") {
       el.loading = "lazy";
     } else {
+      // hero + chân dung cô dâu/chú rể: tải ngay
       el.loading = "eager";
     }
     el.addEventListener(
@@ -319,36 +320,16 @@ function preloadOneImage(url, timeoutMs = 6000) {
 
 async function preloadCriticalImages() {
   const images = window.WEDDING_IMAGES || {};
-  const urls = Array.from(new Set(Object.values(images).filter(Boolean)));
-  if (!urls.length) return;
+  const heroUrl = images.hero;
+  if (!heroUrl) return;
 
-  const startedAt = Date.now();
-  // Giữ nguyên 1 câu duy nhất: “Xin chờ đợi ạ…”
+  // Giữ nguyên 1 câu duy nhất: "Xin chờ đợi ạ..."
   updatePreloader("Xin chờ đợi ạ...");
 
-  // tải song song vừa phải để đỡ nghẽn mạng + tránh giật
-  const concurrency = 4;
-  let idx = 0;
-  let done = 0;
-
-  async function worker() {
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const myIdx = idx;
-      idx += 1;
-      if (myIdx >= urls.length) break;
-      // eslint-disable-next-line no-await-in-loop
-      await preloadOneImage(urls[myIdx], 9000);
-      done += 1;
-      // không hiển thị % để UI gọn, tránh giật text
-    }
-  }
-
-  await Promise.all(Array.from({ length: Math.min(concurrency, urls.length) }, () => worker()));
-
-  // để UI “êm” trước khi mở phong bì
-  const spent = Date.now() - startedAt;
-  if (spent < 650) await new Promise(r => setTimeout(r, 650 - spent));
+  // Chỉ preload ảnh hero (các ảnh còn lại lazy-load khi cuộn tới).
+  // Chờ tối đa 2500ms rồi mở thiệp bất kể hero đã tải xong hay chưa.
+  const timeout = new Promise(r => setTimeout(r, 2500));
+  await Promise.race([preloadOneImage(heroUrl, 2500), timeout]);
 }
 
 function openInvitation() {
@@ -374,11 +355,6 @@ function playMusic() {
   if (typeof musicCfg.volume === "number") {
     bgAudio.volume = Math.min(1, Math.max(0, musicCfg.volume));
   }
-
-  // preload nhanh hơn trước khi gọi play
-  try {
-    bgAudio.load();
-  } catch {}
 
   bgAudio.play()
     .then(() => {
@@ -446,31 +422,18 @@ function updateCountdown() {
 }
 
 function initReveal() {
-  // Hysteresis để tránh "chớp nháy" khi cuộn sát rìa viewport (đặc biệt ở khối ảnh CD/CR)
-  const state = new WeakMap();
+  // One-shot: phần tử hiện một lần khi vào viewport rồi ngừng quan sát,
+  // tránh chớp tắt/toggle liên tục khi cuộn sát rìa viewport.
   const observer = new IntersectionObserver(
     entries => {
       entries.forEach(entry => {
-        const el = entry.target;
-        const prev = state.get(el) || { active: false, last: 0 };
-        const now = Date.now();
-        const ratio = entry.intersectionRatio || 0;
-        const wantOn = entry.isIntersecting && ratio >= 0.14;
-        const wantOff = !entry.isIntersecting || ratio <= 0.02;
-
-        // debounce nhỏ để tránh toggle liên tục khi scroll rung
-        if (now - prev.last < 140) return;
-
-        if (!prev.active && wantOn) {
-          el.classList.add("active");
-          state.set(el, { active: true, last: now });
-        } else if (prev.active && wantOff) {
-          el.classList.remove("active");
-          state.set(el, { active: false, last: now });
+        if (entry.isIntersecting) {
+          entry.target.classList.add("active");
+          observer.unobserve(entry.target);
         }
       });
     },
-    { threshold: [0, 0.02, 0.14, 0.22], rootMargin: "0px 0px -28px 0px" }
+    { threshold: 0.14, rootMargin: "0px 0px -28px 0px" }
   );
 
   document.querySelectorAll(".reveal").forEach(el => observer.observe(el));
@@ -480,8 +443,7 @@ function initReveal() {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           entry.target.classList.add("in-view");
-        } else {
-          entry.target.classList.remove("in-view");
+          albumObserver.unobserve(entry.target);
         }
       });
     },
@@ -499,7 +461,11 @@ function openModal(modalEl) {
 function closeModal(modalEl) {
   modalEl.classList.add("hidden");
   modalEl.classList.remove("is-open");
-  const anyOpen = !rsvpModal.classList.contains("hidden") || !albumModal.classList.contains("hidden");
+  const giftModal = document.getElementById("gift-modal");
+  const anyOpen =
+    !rsvpModal.classList.contains("hidden") ||
+    !albumModal.classList.contains("hidden") ||
+    Boolean(giftModal && !giftModal.classList.contains("hidden"));
   if (!anyOpen) {
     document.body.style.overflow = "";
   }
@@ -795,10 +761,12 @@ function submitSheetWithQueue(payload, successMsg) {
 }
 
 function initPetals() {
+  // Tôn trọng cài đặt giảm chuyển động của người dùng
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const canvas = document.getElementById("petal-canvas");
   const ctx = canvas.getContext("2d");
 
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const dpr = Math.min(1.5, Math.max(1, window.devicePixelRatio || 1));
   const MAX_PETALS = 12;
   const MAX_TOTAL = 24;
   const SPAWN_INTERVAL = 420;
@@ -992,10 +960,30 @@ function initPetals() {
       if (petals[i]._dead) petals.splice(i, 1);
     }
 
-    requestAnimationFrame(draw);
+    rafId = requestAnimationFrame(draw);
   }
 
-  draw();
+  let rafId = 0;
+  let running = false;
+  function startPetals() {
+    if (running) return;
+    running = true;
+    last = performance.now();
+    lastSpawn = performance.now();
+    rafId = requestAnimationFrame(draw);
+  }
+  function stopPetals() {
+    running = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+  }
+  // Tạm dừng khi tab bị ẩn để tiết kiệm pin/CPU, chạy tiếp khi quay lại
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) stopPetals();
+    else startPetals();
+  });
+
+  startPetals();
 }
 
 window.addEventListener("load", async () => {
@@ -1004,9 +992,16 @@ window.addEventListener("load", async () => {
   applyAssetContent();
   applyFeatureFlags();
   buildCalendar();
-  // Warm-up audio to load nhanh hơn cho lần mở thiệp sau
+  // Gán sẵn nguồn nhạc từ music-content.js (preload="none" nên chưa tải dữ liệu),
+  // để lần bấm mở thiệp/phát nhạc không bị trễ vì phải set src.
   try {
-    bgAudio.load();
+    const musicCfg = window.WEDDING_MUSIC || {};
+    if (musicCfg.src && !bgAudio.getAttribute("src")) {
+      bgAudio.src = musicCfg.src;
+    }
+    if (typeof musicCfg.volume === "number") {
+      bgAudio.volume = Math.min(1, Math.max(0, musicCfg.volume));
+    }
   } catch {}
   // preload ảnh quan trọng trước khi mở thiệp để tránh giật/lag khi lướt
   try {
@@ -1050,6 +1045,8 @@ window.addEventListener("keydown", e => {
   if (e.key === "Escape") {
     closeModal(rsvpModal);
     closeModal(albumModal);
+    const giftModal = document.getElementById("gift-modal");
+    if (giftModal) closeModal(giftModal);
   }
 });
 

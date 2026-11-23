@@ -282,36 +282,6 @@ body {
   background: linear-gradient(to top, rgba(25, 35, 45, 0.48) 0%, rgba(20, 25, 30, 0.15) 38%, transparent 55%);
 }
 
-.couple-name-script {
-  position: absolute;
-  bottom: 10%;
-  left: 7%;
-  right: 12%;
-  margin: 0;
-  font-family: var(--dancing);
-  font-weight: 700;
-  /* 1 dòng ngang: giảm cỡ chữ + không xuống dòng */
-  font-size: clamp(1.2rem, 5.2vw, 1.75rem);
-  line-height: 1.2;
-  color: #fff;
-  text-rendering: optimizeLegibility;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-shadow:
-    0 0 2px rgba(0, 0, 0, 0.9),
-    0 1px 0 rgba(255, 255, 255, 0.35),
-    0 2px 8px rgba(0, 0, 0, 0.55),
-    0 4px 24px rgba(0, 0, 0, 0.35);
-}
-
-.couple-name-script--right {
-  left: 10%;
-  right: 7%;
-  text-align: right;
-}
-
 .couple-vows-text {
   margin: 0;
   font-family: var(--display);
@@ -384,62 +354,6 @@ body {
 
 .invite-message-tight {
   letter-spacing: 0.04em;
-}
-
-/* Bố mẹ 2 bên: canh thẳng hàng, không nhảy dòng */
-.family-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  align-items: start;
-  margin-left: -12px;
-  margin-right: -12px;
-  padding-left: 12px;
-  padding-right: 12px;
-  text-align: left;
-}
-
-.family-col {
-  display: grid;
-  grid-template-rows: auto auto;
-  gap: 6px;
-}
-
-.family-title {
-  font-family: var(--display);
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 0.11em;
-  color: #2b2b2b;
-  text-align: center;
-}
-
-.family-lines {
-  font-size: clamp(9.2px, 2.2vw, 12px);
-  line-height: 1.85;
-  color: #6b7280;
-}
-
-.family-lines .family-line {
-  display: block;
-  white-space: nowrap;
-}
-
-@media (max-width: 360px) {
-  .family-grid {
-    gap: 6px;
-    margin-left: -16px;
-    margin-right: -16px;
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  .family-title {
-    font-size: 16px;
-    letter-spacing: 0.1em;
-  }
-  .family-lines {
-    font-size: 10px;
-  }
 }
 
 .invitation-heading-date,
@@ -683,12 +597,6 @@ body {
 
 .ceremony-block {
   padding: 0 2px;
-}
-
-.ceremony-block--sep {
-  margin-top: 1.15rem;
-  padding-top: 1.15rem;
-  border-top: 1px solid rgba(197, 168, 128, 0.45);
 }
 
 .ceremony-title {
