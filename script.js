@@ -22,7 +22,6 @@ const albumModalCaption = document.getElementById("album-modal-caption");
 const rsvpForm = document.getElementById("rsvp-form");
 const toast = document.getElementById("toast");
 const countdownLabel = document.getElementById("countdown-label");
-const syncStatus = document.getElementById("sync-status"); // may be null (UI hidden/removed)
 
 let invitationOpened = false;
 let musicPlaying = false;
@@ -486,12 +485,6 @@ function showToast(message) {
   }, 1800);
 }
 
-function setSyncStatus(message, tone = "") {
-  if (!syncStatus) return;
-  syncStatus.textContent = message;
-  syncStatus.classList.remove("ok", "warn", "err");
-  if (tone) syncStatus.classList.add(tone);
-}
 
 function escapeHtml(text) {
   const div = document.createElement("div");
@@ -615,19 +608,9 @@ async function initGuestbookDisplay() {
     renderChatFromMessages([]);
     return;
   }
-  if (!loadMessages().length) seedMessagesIfEmpty();
   renderMessages();
 }
 
-function seedMessagesIfEmpty() {
-  const messages = loadMessages();
-  if (messages.length) return;
-  const seed = [
-    { name: "Thanh Hà", message: "Chúc anh chị trăm năm hạnh phúc.\nMãi yêu thương và bình an!", at: Date.now() - 3000 },
-    { name: "Quang Đức", message: "Mừng ngày trọng đại của hai bạn.\nHôn lễ thật viên mãn nhé!", at: Date.now() - 2000 }
-  ];
-  storeMessages(seed);
-}
 
 function saveRsvp(name, count) {
   let list = [];
@@ -716,17 +699,14 @@ function enqueueSheetPayload(payload) {
   const queue = loadSheetQueue();
   queue.push({ ...payload, queuedAt: Date.now() });
   saveSheetQueue(queue);
-  setSyncStatus(`Chờ đồng bộ ${queue.length} mục`, "warn");
 }
 
 async function flushSheetQueue() {
   const queue = loadSheetQueue();
   if (!queue.length) {
-    setSyncStatus("Đồng bộ datasheet thành công", "ok");
     return;
   }
 
-  setSyncStatus(`Đang đồng bộ ${queue.length} mục...`, "warn");
   const remain = [];
   for (const item of queue) {
     // eslint-disable-next-line no-await-in-loop
@@ -735,9 +715,7 @@ async function flushSheetQueue() {
   }
   saveSheetQueue(remain);
   if (remain.length) {
-    setSyncStatus(`Chờ đồng bộ ${remain.length} mục`, "warn");
   } else {
-    setSyncStatus("Đồng bộ datasheet thành công", "ok");
     await refreshGuestbookFromSheet();
   }
 }
@@ -754,7 +732,6 @@ function submitSheetWithQueue(payload, successMsg) {
       enqueueSheetPayload(payload);
       showToast(`Đã lưu cục bộ (${result.reason || "pending"}), sẽ tự đồng bộ datasheet`);
     } else {
-      setSyncStatus(successMsg, "ok");
       if (loadSheetQueue().length > 0) {
         await flushSheetQueue();
       }
@@ -1024,9 +1001,7 @@ window.addEventListener("load", async () => {
   void initGuestbookDisplay();
   const cfg = window.WEDDING_SHEET || {};
   if (!cfg.webhookUrl) {
-    setSyncStatus("Chưa cấu hình webhook datasheet", "err");
   } else {
-    setSyncStatus("Sẵn sàng đồng bộ datasheet", "ok");
     flushSheetQueue();
   }
 });
